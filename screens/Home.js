@@ -1,32 +1,129 @@
-import React, { Profiler, useEffect, useState } from "react";
+import React, { Profiler, useEffect, useState, useRef } from "react";
 import { View, Text, FlatList, StyleSheet, StatusBar, TextInput, Pressable, ToastAndroid } from "react-native";
 import { Picker } from '@react-native-picker/picker';
-import { setLoginRedux, setPasswordRedux } from "../store/actions"
 import { useSelector, useDispatch } from 'react-redux';
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { setServerAddressRedux, setLoginRedux, setPasswordRedux, setIsWebRedux, setTokenRedux } from "../store/actions"
 
-export default function Settings(props) {
-    const [list, setList] = React.useState([]);
+export default function Home() {
+    const [show, setShow] = useState(false)
+    const [list, setList] = useState([]);
     const [name, setName] = useState('')
     const [selectedType, setSelectedType] = useState('сезоны');
     const [progress, setProgress] = useState('')
     const [notes, setNotes] = useState('')
 
-    let savedToken = "";
+    const dispatch = useDispatch();
 
-    useEffect(() => {
-        getList();
+    let login = useRef('');
+    let password = useRef('');
+    let token = useRef('');
+    let address = useRef('');
+
+    useEffect( () => {
+        fetchData();
     }, []);
+    // let address = useSelector(state => state.serverAddress);
+    // let login = useSelector(state => state.login);
+    // let password = useSelector(state => state.password);
+    // let token = useSelector(state => state.token);
+
+    // useEffect(() => {
+    //     fetchData();
+    // }, [serverAddress, login, password, isWeb]);
+
+    const fetchData = async () => {
+        try {
+            const savedLogin = await AsyncStorage.getItem("login")
+            const savedPassword = await AsyncStorage.getItem("password")
+            const savedToken = await AsyncStorage.getItem("token")
+            const savedAddress = await AsyncStorage.getItem("serverAddress")
+            const savedIsWeb = await AsyncStorage.getItem("isWeb")
+
+            dispatch(setServerAddressRedux(savedAddress ? savedAddress : ''))
+            dispatch(setLoginRedux(savedLogin ? savedLogin : ''))
+            dispatch(setPasswordRedux(savedPassword ? savedPassword : ''))
+            dispatch(setIsWebRedux(savedIsWeb ? JSON.parse(savedIsWeb) : ''))
+            dispatch(setTokenRedux(savedToken ? savedToken : ''))
+            
+            login.current = savedLogin
+            password.current = savedPassword
+            token.current = savedToken
+            address.current = savedAddress
+
+            if(!savedToken) {
+                newToken = await getToken()
+                dispatch(setTokenRedux(newToken ? newToken.token : ''))
+                await AsyncStorage.setItem("token", newToken.token);
+            } else {
+                const check = await checkToken()
+                if(check.message === "Unauthorized"){
+                    newToken = await getToken()
+                    dispatch(setTokenRedux(newToken ? newToken.token : ''))
+                    await AsyncStorage.setItem("token", newToken.token);
+                } else {
+                    // console.log("////////////////////")
+                    // console.log(check.message)
+                }
+            }
+            await getList();
+        } catch(err){
+            console.error(err)
+        }
+    }
+
+    const getToken = async () => {
+        data = {
+            method: 'POST',
+            headers: {
+                'type': 'login',
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                "username": login.current,
+                "password": password.current,
+            }),
+        }
+        try {  
+            return fetch(address.current, data)
+            .then(response => {
+                return response.json()
+            })
+        } catch (error) { 
+            console.error(error);
+        }
+    };
+
+    const checkToken = async () => {
+        data = {
+            method: 'POST',
+            headers:  {
+                'type': 'tokenCheck',
+                'authorization': 'Bearer ' + token.current,
+                'Content-Type': 'application/json',
+            } 
+        }
+        try {  
+            return fetch(address.current, data)
+            .then(async response => {
+                return await response.json()
+            })
+        } catch (error) { 
+            console.error(error);
+        }
+    };
+
     
     const getList = async () => {
-        //получение токена через AsyncStorage, а нужно через redux
-        savedToken = await AsyncStorage.getItem("token")
-        savedAddress = await AsyncStorage.getItem("serverAddress")
+        
+        // console.log("getList");
+        // console.log(address.current);
+        // console.log(token.current);
         try {
             const response = await fetch(
-                savedAddress + '?type=main', {
+                address.current + '?type=main', {
                     headers: {
-                        'authorization': 'Bearer ' + savedToken,
+                        'authorization': 'Bearer ' + token.current,
                     }
                 }
             );
@@ -44,22 +141,14 @@ export default function Settings(props) {
             return
         if ((selectedType === "сезоны" || selectedType === "серии") && progress === "")
             return
-        if (isNaN(Number(progress)))
+        if (isNaN(Number(progress)) || Number(progress) === 0)
             return
-        // console.log("typeof(progress)")
-        // console.log(typeof(progress))
-        // console.log(typeof(Number(progress)))
-        // console.log(Number(progress))
-        // console.log("Number(progress)")
         const lastid = getLastId()
-        //получение токена через AsyncStorage, а нужно через redux
-        savedToken = await AsyncStorage.getItem("token")
-        savedAddress = await AsyncStorage.getItem("serverAddress")
         data = {
             method: 'POST',
             headers:  {
                 'type': 'addrow',
-                'authorization': 'Bearer ' + savedToken,
+                'authorization': 'Bearer ' + token.current,
             },
             body: JSON.stringify({
                 "ID": Number(lastid) + 1,
@@ -69,8 +158,12 @@ export default function Settings(props) {
                 "Notes": notes ? notes : "n/d",
             }),
         }
+        
+        // console.log("address");
+        // console.log(address.current);
+        // console.log(token.current);
         try {  
-            fetch(savedAddress + '?type=main', data)
+            await fetch(address.current + '?type=main', data)
             // .then(async response => {
             //     console.log(await response.json())
             //     getList()
@@ -96,16 +189,14 @@ export default function Settings(props) {
     // console.log(list)
 
     const deleteAnime = async (id, name) => {
-        savedToken = await AsyncStorage.getItem("token")
-        savedAddress = await AsyncStorage.getItem("serverAddress")
         data = {
             method: 'DELETE',
             headers:  {
-                'authorization': 'Bearer ' + savedToken,
+                'authorization': 'Bearer ' + token.current,
             },
         }
         try {  
-            fetch(savedAddress + '?type=main&number=' + id, data)
+            await fetch(address.current + '?type=main&number=' + id, data)
             // .then(async response => {
             //     console.log(await response.json())
             //     getList()
@@ -127,64 +218,72 @@ export default function Settings(props) {
 
     return (
         <View style={styles.container}>
-            <Text style={styles.text}>Название</Text>
-            <TextInput 
-                style={styles.input}
-                placeholder="fate"
-                onChangeText={setName}
-                value={name}
-            />
-            <Text style={styles.text}>Тип прогресса</Text>
-            <View
-            style={{
-                // flex: 1,
-                justifyContent: 'center',
-                // alignItems: 'center',
-                // alignSelf: 'stretch',
-                borderWidth: 1,
-                marginHorizontal: 10,
-                borderRadius: 5,
-                maxHeight: 40
-            }}>
-                <Picker
-                    selectedValue={selectedType}
-                    onValueChange={(itemValue, itemIndex) =>
-                        setSelectedType(itemValue)
-                    }
-                    // style={{flex: 1}}
-                >
-                    <Picker.Item label="Сезоны" value="сезоны" />
-                    <Picker.Item label="Серии" value="серии" />
-                    <Picker.Item label="Фильм" value="фильм" />
-                    <Picker.Item label="Не применимо" value="не применимо" />
-                </Picker>
-            </View>
-            <Text style={styles.text}>Просмотрено</Text>
-            <TextInput 
-                style={styles.input}
-                placeholder="2"
-                onChangeText={setProgress}
-                value={progress}
-            />
-            <Text style={styles.text}>Примечания</Text>
-            <TextInput 
-                style={styles.input}
-                placeholder="Классное аниме, плюс просмотрен фильм"
-                onChangeText={setNotes}
-                value={notes}
-            />
-            <Pressable 
-                style={styles.button} 
-                onPress={addAnime}
-            >
-                <Text style={styles.btnText}>Сохранить</Text>
-            </Pressable>
-            <View
+            {show && <View>
+                <Text style={styles.text}>Название</Text>
+                <TextInput 
+                    style={styles.input}
+                    placeholder="fate"
+                    onChangeText={setName}
+                    value={name}
+                />
+                <Text style={styles.text}>Тип прогресса</Text>
+                <View
                 style={{
-                    borderBottomColor: 'black',
-                    borderBottomWidth: StyleSheet.hairlineWidth,
-                }}
-            />
+                    // flex: 1,
+                    justifyContent: 'center',
+                    // alignItems: 'center',
+                    // alignSelf: 'stretch',
+                    borderWidth: 1,
+                    marginHorizontal: 10,
+                    borderRadius: 5,
+                    maxHeight: 40
+                }}>
+                    <Picker
+                        selectedValue={selectedType}
+                        onValueChange={(itemValue, itemIndex) =>
+                            setSelectedType(itemValue)
+                        }
+                        // style={{flex: 1}}
+                    >
+                        <Picker.Item label="Сезоны" value="сезоны" />
+                        <Picker.Item label="Серии" value="серии" />
+                        <Picker.Item label="Фильм" value="фильм" />
+                        <Picker.Item label="Не применимо" value="не применимо" />
+                    </Picker>
+                </View>
+                <Text style={styles.text}>Просмотрено</Text>
+                <TextInput 
+                    style={styles.input}
+                    placeholder="2"
+                    onChangeText={setProgress}
+                    value={progress}
+                />
+                <Text style={styles.text}>Примечания</Text>
+                <TextInput 
+                    style={styles.input}
+                    placeholder="Классное аниме, плюс просмотрен фильм"
+                    onChangeText={setNotes}
+                    value={notes}
+                />
+                <Pressable 
+                    style={styles.button} 
+                    onPress={addAnime}
+                >
+                    <Text style={styles.btnText}>Сохранить</Text>
+                </Pressable>
+                <View
+                    style={{
+                        borderBottomColor: 'black',
+                        borderBottomWidth: StyleSheet.hairlineWidth,
+                    }}
+                />
+            </View>}
+            <Pressable 
+                style={styles.showBtn} 
+                onPress={() => setShow(!show)}
+            >
+                <Text style={styles.btnText}>{show ? "скрыть" : "добавить аниме"}</Text>
+            </Pressable>
             <FlatList
                 data={list}
                 renderItem={({item}) => 
@@ -261,4 +360,12 @@ const styles = StyleSheet.create({
         letterSpacing: 0.25,
         color: 'white',
     },
+    showBtn: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 5,
+        paddingHorizontal: 32,
+        backgroundColor: 'grey',
+        marginHorizontal: 10,
+    }
 });

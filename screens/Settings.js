@@ -5,6 +5,11 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { setServerAddressRedux, setLoginRedux, setPasswordRedux, setIsWebRedux } from "../store/actions"
 
 export default function Settings(props) {
+    
+    const [serverAddress, setServerAddress] = React.useState('');
+    const [login, setLogin] = React.useState('');
+    const [password, setPassword] = React.useState('');
+    const [isWeb, setIsWeb] = React.useState(true)
 
     useEffect( () => {
         fetchStorageData();
@@ -23,11 +28,6 @@ export default function Settings(props) {
         setPassword(getPassword ? getPassword : '')
         setIsWeb(getIsWeb ? JSON.parse(getIsWeb) : '')
     }
-    
-    const [serverAddress, setServerAddress] = React.useState('');
-    const [login, setLogin] = React.useState('');
-    const [password, setPassword] = React.useState('');
-    const [isWeb, setIsWeb] = React.useState(true)
     
     const toggleSwitch = () => {
       if (isWeb) {
