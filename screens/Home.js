@@ -4,6 +4,8 @@ import { Picker } from '@react-native-picker/picker';
 import { useSelector, useDispatch } from 'react-redux';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { setServerAddressRedux, setLoginRedux, setPasswordRedux, setIsWebRedux, setTokenRedux } from "../store/actions"
+import { showToast } from "../utils/Toast";
+import ErrorModal from "../modal/ErrorModal";
 
 export default function Home() {
     const [show, setShow] = useState(false)
@@ -12,6 +14,9 @@ export default function Home() {
     const [selectedType, setSelectedType] = useState('сезоны');
     const [progress, setProgress] = useState('')
     const [notes, setNotes] = useState('')
+
+    const [errorVisible, setErrorVisible] = useState(false);
+    const [errorMessage, setErrorMessage] = useState('error');
 
     const dispatch = useDispatch();
 
@@ -67,8 +72,10 @@ export default function Home() {
                 }
             }
             await getList();
-        } catch(err){
-            console.error(err)
+        } catch(error){
+            setErrorVisible(true)
+            setErrorMessage(error)
+            console.error(error)
         }
     }
 
@@ -84,14 +91,7 @@ export default function Home() {
                 "password": password.current,
             }),
         }
-        try {  
-            return fetch(address.current, data)
-            .then(response => {
-                return response.json()
-            })
-        } catch (error) { 
-            console.error(error);
-        }
+        return nRequest(address.current, data)
     };
 
     const checkToken = async () => {
@@ -103,35 +103,28 @@ export default function Home() {
                 'Content-Type': 'application/json',
             } 
         }
-        try {  
-            return fetch(address.current, data)
-            .then(async response => {
-                return await response.json()
-            })
-        } catch (error) { 
-            console.error(error);
-        }
+
+        return nRequest(address.current, data)
     };
 
     
     const getList = async () => {
-        
-        // console.log("getList");
-        // console.log(address.current);
-        // console.log(token.current);
+        data = {
+            headers: {
+                'authorization': 'Bearer ' + token.current,
+            }
+        }
+
         try {
-            const response = await fetch(
-                address.current + '?type=main', {
-                    headers: {
-                        'authorization': 'Bearer ' + token.current,
-                    }
-                }
-            );
-            currList = await response.json()
-            currList.shift()
-            currList.reverse()
+            const currList = await nRequest(address.current + '?type=main', data) 
+            if (currList.length > 0) {
+                await currList.shift()
+                await currList.reverse()
+            }
             setList(currList);
         } catch (error) {
+            setErrorVisible(true)
+            setErrorMessage(error)
             console.error(error);
         }
     };
@@ -159,23 +152,12 @@ export default function Home() {
             }),
         }
         
-        // console.log("address");
-        // console.log(address.current);
-        // console.log(token.current);
-        try {  
-            await fetch(address.current + '?type=main', data)
-            // .then(async response => {
-            //     console.log(await response.json())
-            //     getList()
-            // })
-            await getList()
-            setName('')
-            setProgress('')
-            setNotes('')
-            showToast("Было добавлено - " + name)
-        } catch (error) { 
-            console.error(error);
-        }
+        await nRequest(address.current + '?type=main', data)
+        await getList()
+        setName('')
+        setProgress('')
+        setNotes('')
+        showToast("Было добавлено - " + name)
     };
 
     const getLastId =  () => {
@@ -195,25 +177,22 @@ export default function Home() {
                 'authorization': 'Bearer ' + token.current,
             },
         }
-        try {  
-            await fetch(address.current + '?type=main&number=' + id, data)
-            // .then(async response => {
-            //     console.log(await response.json())
-            //     getList()
-            // })
-            await getList()
-            showToast("Было удалено - " + name)
-        } catch (error) { 
-            console.error(error);
-        }
+        await nRequest(address.current + '?type=main&number=' + id, data)
+        await getList()
+        showToast("Было удалено - " + name)
     }
 
-    const showToast = (message) => {
-        ToastAndroid.showWithGravity(
-            message,
-            ToastAndroid.SHORT,
-            ToastAndroid.CENTER,
-        );
+    const nRequest = async (address, data) => {
+        return await fetch(address, data)
+        .then(async response => {
+            return await response.json()
+        })
+        .catch(function (error) {
+            setErrorVisible(true)
+            setErrorMessage(error)
+            console.log(error);
+            console.log(`адресс ${address} с заголовками ${JSON.stringify(data)}`);
+        })
     }
 
     return (
@@ -311,6 +290,11 @@ export default function Home() {
                 }
             />
             <StatusBar style="auto" />
+            <ErrorModal
+                visible={errorVisible}
+                message={errorMessage.toString()}
+                onClose={() => setErrorVisible(false)}
+            />
         </View>
     );
     
@@ -319,7 +303,6 @@ export default function Home() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        // paddingTop: 22,
     },
     item: {
         padding: 10,

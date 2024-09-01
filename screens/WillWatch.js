@@ -4,6 +4,7 @@ import { Picker } from '@react-native-picker/picker';
 import { useSelector, useDispatch } from 'react-redux';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { setServerAddressRedux, setLoginRedux, setPasswordRedux, setIsWebRedux, setTokenRedux } from "../store/actions"
+import { showToast } from "../utils/Toast";
 
 export default function WillWatch() {
     const [show, setShow] = useState(false)
@@ -31,8 +32,8 @@ export default function WillWatch() {
                 }
             );
             currList = await response.json()
-            currList.shift()
-            currList.reverse()
+            await currList.shift()
+            await currList.reverse()
             setWillWathcList(currList);
         } catch (error) {
             console.error(error);
@@ -96,14 +97,6 @@ export default function WillWatch() {
         } catch (error) { 
             console.error(error);
         }
-    }
-
-    const showToast = (message) => {
-        ToastAndroid.showWithGravity(
-            message,
-            ToastAndroid.SHORT,
-            ToastAndroid.CENTER,
-        );
     }
 
     return (

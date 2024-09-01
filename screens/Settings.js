@@ -3,6 +3,7 @@ import { View, Text, TextInput, SafeAreaView, StyleSheet, Switch, Pressable, Toa
 import { useSelector, useDispatch } from 'react-redux';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { setServerAddressRedux, setLoginRedux, setPasswordRedux, setIsWebRedux } from "../store/actions"
+import { showToast } from "../utils/Toast";
 
 export default function Settings(props) {
     
@@ -52,14 +53,6 @@ export default function Settings(props) {
         storeData("isWeb", JSON.stringify(isWeb))
         dispatch(setIsWebRedux(JSON.stringify(isWeb)));
         showToast("Новые настройки были сохранены")
-    }
- 
-    const showToast = (message) => {
-        ToastAndroid.showWithGravity(
-            message,
-            ToastAndroid.SHORT,
-            ToastAndroid.CENTER,
-        );
     }
 
     return (
