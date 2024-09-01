@@ -8,9 +8,11 @@ import { showToast } from "../utils/Toast";
 
 export default function WillWatch() {
     const [show, setShow] = useState(false)
-    const [willWatchList, setWillWathcList] = useState([]);
+    const [willWatchList, setWillWathcList] = useState([]);//исходный список
+    const [filteredList, setFilteredList] = useState([]); // Отфильтрованный список
     const [name, setName] = useState('')
     const [notes, setNotes] = useState('')
+    const [search, setSearch] = useState('')
     
     const token = useSelector(state => state.token);
     const address = useSelector(state => state.serverAddress);
@@ -35,6 +37,7 @@ export default function WillWatch() {
             await currList.shift()
             await currList.reverse()
             setWillWathcList(currList);
+            setFilteredList(currList);
         } catch (error) {
             console.error(error);
         }
@@ -54,16 +57,8 @@ export default function WillWatch() {
                 "Notes": notes ? notes : "n/d",
             }),
         }
-        
-        // console.log("address");
-        // console.log(address);
-        // console.log(token);
         try {  
             await fetch(address + '?type=willwatch', data)
-            // .then(async response => {
-            //     console.log(await response.json())
-            //     getList()
-            // })
             await getList()
             setName('')
             setNotes('')
@@ -97,6 +92,11 @@ export default function WillWatch() {
         } catch (error) { 
             console.error(error);
         }
+    }
+
+    const searchHandler = (text) => {
+        setSearch(text)
+        setFilteredList(willWatchList.filter(anime => anime.Name.includes(text)))
     }
 
     return (
@@ -135,8 +135,14 @@ export default function WillWatch() {
             >
                 <Text style={styles.btnText}>{show ? "скрыть" : "добавить аниме"}</Text>
             </Pressable>
+            <TextInput 
+                style={styles.searchInput}
+                placeholder="Поиск"
+                onChangeText={searchHandler}
+                value={search}
+            />
             <FlatList
-                data={willWatchList}
+                data={filteredList}
                 renderItem={({item}) => 
                     <View style={styles.item}>
                         <View style={{flex: 1}}>
@@ -186,6 +192,15 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderRadius: 5,
         padding: 10,
+    },
+    searchInput: {
+        height: 40,
+        marginHorizontal: 10,
+        marginBottom: 5,
+        borderWidth: 1,
+        borderRadius: 5,
+        padding: 10,
+        marginTop: 10,
     },
     button: {
         alignItems: 'center',

@@ -9,11 +9,13 @@ import ErrorModal from "../modal/ErrorModal";
 
 export default function Home() {
     const [show, setShow] = useState(false)
-    const [list, setList] = useState([]);
+    const [list, setList] = useState([]); //исходный список
+    const [filteredList, setFilteredList] = useState([]); // Отфильтрованный список
     const [name, setName] = useState('')
     const [selectedType, setSelectedType] = useState('сезоны');
     const [progress, setProgress] = useState('')
     const [notes, setNotes] = useState('')
+    const [search, setSearch] = useState('')
 
     const [errorVisible, setErrorVisible] = useState(false);
     const [errorMessage, setErrorMessage] = useState('error');
@@ -28,14 +30,6 @@ export default function Home() {
     useEffect( () => {
         fetchData();
     }, []);
-    // let address = useSelector(state => state.serverAddress);
-    // let login = useSelector(state => state.login);
-    // let password = useSelector(state => state.password);
-    // let token = useSelector(state => state.token);
-
-    // useEffect(() => {
-    //     fetchData();
-    // }, [serverAddress, login, password, isWeb]);
 
     const fetchData = async () => {
         try {
@@ -121,7 +115,8 @@ export default function Home() {
                 await currList.shift()
                 await currList.reverse()
             }
-            setList(currList);
+            setList(currList) // Устанавливаем исходный список
+            setFilteredList(currList); // Устанавливаем отфильтрованный список
         } catch (error) {
             setErrorVisible(true)
             setErrorMessage(error)
@@ -152,23 +147,23 @@ export default function Home() {
             }),
         }
         
-        await nRequest(address.current + '?type=main', data)
-        await getList()
-        setName('')
-        setProgress('')
-        setNotes('')
-        showToast("Было добавлено - " + name)
+        try {
+            await nRequest(address.current + '?type=main', data)
+            await getList()
+            setName('')
+            setProgress('')
+            setNotes('')
+            showToast("Было добавлено - " + name)
+        } catch (error) {
+            console.error(error)
+        }
     };
 
     const getLastId =  () => {
-        // console.log("list")
-        // console.log(list)
-        // console.log(list[0])
         if (list[0] === undefined)
             return -1
         return list[0].ID
     }
-    // console.log(list)
 
     const deleteAnime = async (id, name) => {
         data = {
@@ -193,6 +188,11 @@ export default function Home() {
             console.log(error);
             console.log(`адресс ${address} с заголовками ${JSON.stringify(data)}`);
         })
+    }
+
+    const searchHandler = (text) => {
+        setSearch(text)
+        setFilteredList(list.filter(anime => anime.Name.includes(text)))
     }
 
     return (
@@ -263,8 +263,14 @@ export default function Home() {
             >
                 <Text style={styles.btnText}>{show ? "скрыть" : "добавить аниме"}</Text>
             </Pressable>
+            <TextInput 
+                style={styles.searchInput}
+                placeholder="Поиск"
+                onChangeText={searchHandler}
+                value={search}
+            />
             <FlatList
-                data={list}
+                data={filteredList}
                 renderItem={({item}) => 
                     <View style={styles.item}>
                         <View style={{flex: 1}}>
@@ -325,6 +331,15 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderRadius: 5,
         padding: 10,
+    },
+    searchInput: {
+        height: 40,
+        marginHorizontal: 10,
+        marginBottom: 5,
+        borderWidth: 1,
+        borderRadius: 5,
+        padding: 10,
+        marginTop: 10,
     },
     button: {
         alignItems: 'center',
